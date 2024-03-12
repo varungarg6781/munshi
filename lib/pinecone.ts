@@ -23,6 +23,28 @@ type PDFPage = {
   };
 };
 
+// New function name to reflect the direct handling of text
+export async function storeTextInPinecone(text: string, userId: string) {
+  const embeddings = await getEmbeddings(text);
+
+  const pineconeRecord = {
+    id: userId,
+    values: embeddings,
+    // Additional metadata can include timestamp, userId, etc., based on your requirements
+    metadata: { text },
+  };
+
+  console.log("pineconeRecord is - ", pineconeRecord);
+
+  // Storing in Pinecone as before
+  const client = await getPineconeClient();
+  const pineconeIndex = await client.index("chatpdf");
+  const namespace = pineconeIndex.namespace(userId);
+
+  console.log("inserting vectors into pinecone");
+  await namespace.upsert([pineconeRecord]);
+}
+
 export async function loadS3IntoPinecone(fileKey: string) {
   // 1. obtain the pdf -> downlaod and read from pdf
   console.log("downloading s3 into file system");

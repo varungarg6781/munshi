@@ -2,10 +2,11 @@
 import { useEffect, useState, useRef } from "react";
 import { Mic, Pause } from "lucide-react";
 import { useRouter } from "next/navigation"; // Import useRouter at the top
-import { jsPDF } from "jspdf";
-import { uploadToS3 } from "@/lib/s3";
 import toast from "react-hot-toast";
 import axios from "axios";
+import { voiceMessages } from "@/lib/db/schema";
+import { db } from "@/lib/db";
+import { useUser } from "@clerk/nextjs";
 
 declare global {
   interface Window {
@@ -21,6 +22,8 @@ export default function MicrophoneComponent() {
   // Define the ref type more specifically
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const router = useRouter();
+  const { user } = useUser();
+  const userId = user?.id;
 
   const startRecording = () => {
     setIsRecording(true);
@@ -76,50 +79,59 @@ export default function MicrophoneComponent() {
   };
 
   const handleSubmit = async () => {
-    const fullTranscript = transcripts.join("");
-    const doc = new jsPDF();
-
-    // Define the maximum width for text lines
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 20; // Define a margin
-    const maxWidth = pageWidth - margin * 2; // Calculate max width of the text
-
-    // Use splitTextToSize to split the transcript into lines that fit within the max width
-    const lines = doc.splitTextToSize(fullTranscript, maxWidth);
-
-    // Add the text to the PDF, starting at position (x, y) = (margin, 20)
-    doc.text(lines, margin, 20);
-
-    // Generate a unique file name with current date
-    const date = new Date();
-    const dateString = date.toISOString().split("T")[0]; // Format: YYYY-MM-DD
-    const uniqueIdentifier = Date.now(); // or any other unique identifier
-    const fileName = `transcript_${dateString}_${uniqueIdentifier}.pdf`;
-
-    const pdfBlob = doc.output("blob");
-    const file = new File([pdfBlob], fileName, { type: "application/pdf" });
-
-    // Use the existing upload logic
+    const fullTranscript = transcripts.join(" ");
+    // Send the transcript directly to the backend for processing
     try {
-      const data = await uploadToS3(file);
-      if (!data?.file_key || !data.file_name) {
-        toast.error("Something went wrong with the upload");
-        return;
+      console.log("fullTransscript -", fullTranscript);
+      const response = await axios.post(
+        "/api/process-voice",
+        {
+          transcript: fullTranscript,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const { success, message } = response.data;
+      if (success) {
+        toast.success("Voice processed successfully!");
+      } else {
+        toast.error(message || "Failed to process voice");
       }
-      console.log("Upload to S3 completed");
-
-      // Assuming you have an endpoint setup to handle chat creation post-upload
-      const response = await axios.post("/api/create-chat", {
-        file_key: data.file_key,
-        file_name: data.file_name,
-      });
-
-      const { chat_id } = response.data;
-      toast.success("Chat created!");
-      router.push(`/chat/${chat_id}`);
     } catch (error) {
-      console.error("Upload failed", error);
-      toast.error("Failed to create chat");
+      console.error("Processing failed", error);
+      toast.error("Processing failed");
+    }
+  };
+
+  const handleRefreshChat = async () => {
+    try {
+      // Update the user's activeChatVersion in the database
+      const response = await axios.post(
+        "/api/update-chat-version",
+        {
+          userId,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      const { success } = response.data;
+      if (success) {
+        toast.success("Chat refreshed successfully!");
+      } else {
+        toast.error("Chat can't be refreshed");
+      }
+
+      // Optionally, perform any additional actions upon successful update
+    } catch (error) {
+      console.error("Failed to refresh chat", error);
+      toast.error("Failed to refresh chat");
     }
   };
 
@@ -155,6 +167,12 @@ export default function MicrophoneComponent() {
           className="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
         >
           Submit
+        </button>
+        <button
+          onClick={handleRefreshChat}
+          className="mt-4 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+        >
+          Refresh Chat
         </button>
       </div>
     </div>

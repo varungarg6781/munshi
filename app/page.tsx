@@ -1,26 +1,67 @@
 import { Button } from "@/components/ui/button";
-import { UserButton, auth } from "@clerk/nextjs";
+import { UserButton, auth, clerkClient } from "@clerk/nextjs";
 import Link from "next/link";
 import { ArrowRight, LogIn } from "lucide-react";
 import FileUpload from "@/components/FileUpload";
 // import { checkSubscription } from "@/lib/subscription";
 // import SubscriptionButton from "@/components/SubscriptionButton";
 import { db } from "@/lib/db";
-import { chats } from "@/lib/db/schema";
+import { chats, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import MicrophoneComponent from "@/components/MicrophoneComponent";
+import QuestionAskerComponent from "@/components/QuestionAskerComponent";
+import { User } from "@clerk/nextjs/server";
+
+async function checkAndInsertUser(user: User) {
+  // Assuming user.id is the Clerk user ID and you're using it as userId in your schema
+  const clerkUserId = user.id;
+  const emailAddress = user.emailAddresses[0].emailAddress; // Assuming the first email is the primary one
+
+  // Check if the user exists in your database
+  const existingUser = await db
+    .select()
+    .from(users)
+    .where(eq(users.userId, clerkUserId))
+    .execute();
+
+  // If the user doesn't exist, insert them
+  if (existingUser.length === 0) {
+    await db
+      .insert(users)
+      .values({
+        userId: clerkUserId,
+        emailAddress: emailAddress,
+        activeChatVersion: 1, // we want to set this to 1 for new users
+        // Include other fields as necessary
+      })
+      .execute();
+    console.log("User inserted into database");
+  } else {
+    console.log("User already exists in the database");
+  }
+}
 
 export default async function Home() {
   const { userId } = await auth();
   const isAuth = !!userId;
   // const isPro = await checkSubscription();
-  let firstChat;
+
   if (userId) {
-    firstChat = await db.select().from(chats).where(eq(chats.userId, userId));
-    if (firstChat) {
-      firstChat = firstChat[0];
-    }
+    const user = await clerkClient.users.getUser(userId);
+    console.log("user details - ", user);
+    await checkAndInsertUser(user);
+    // check if entry exists in users table or not
+    // if not then we will feed this entry in db
+    // get user_id from clerk and email
   }
+
+  // let firstChat;
+  // if (userId) {
+  //   firstChat = await db.select().from(chats).where(eq(chats.userId, userId));
+  //   if (firstChat) {
+  //     firstChat = firstChat[0];
+  //   }
+  // }
 
   return (
     <div className="w-screen min-h-screen bg-gradient-to-r from-rose-50 to-rose-100">
@@ -33,7 +74,7 @@ export default async function Home() {
             <UserButton afterSignOutUrl="/" />
           </div>
 
-          <div className="flex flex-col mt-2">
+          {/* <div className="flex flex-col mt-2">
             {isAuth && firstChat && (
               <>
                 <Link href={`/chat/${firstChat.id}`}>
@@ -43,7 +84,7 @@ export default async function Home() {
                 </Link>
               </>
             )}
-          </div>
+          </div> */}
 
           <p className="max-w-xl mt-1 text-lg text-slate-600">
             Drop in a document or effortlessly generate your own voice memos to
@@ -53,12 +94,15 @@ export default async function Home() {
         <div className="flex flex-col justify-center items-center mt-4">
           {isAuth ? (
             <>
-              <div className="w-full ">
+              {/* <div className="w-full ">
                 <FileUpload />
               </div>
-              <div className="w-full h-5 "></div>
+              <div className="w-full h-5 "></div> */}
               <div className="w-full flex flex-col">
                 <MicrophoneComponent />
+              </div>
+              <div className="w-full flex flex-col">
+                <QuestionAskerComponent />
               </div>
             </>
           ) : (

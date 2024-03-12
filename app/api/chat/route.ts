@@ -56,7 +56,7 @@ export async function POST(req: Request) {
         await db.insert(_messages).values({
           chatId,
           content: lastMessage.content,
-          role: "user",
+          role: "user_listener",
         });
       },
       onCompletion: async (completion) => {

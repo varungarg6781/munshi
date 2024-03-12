@@ -4,8 +4,6 @@ const config = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-console.log("Open AI KEY - ", process.env.OPENAI_API_KEY);
-
 const openai = new OpenAIApi(config);
 
 export async function getEmbeddings(text: string) {
