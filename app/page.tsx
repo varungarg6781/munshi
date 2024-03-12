@@ -2,44 +2,10 @@ import { Button } from "@/components/ui/button";
 import { UserButton, auth, clerkClient } from "@clerk/nextjs";
 import Link from "next/link";
 import { ArrowRight, LogIn } from "lucide-react";
-import FileUpload from "@/components/FileUpload";
-// import { checkSubscription } from "@/lib/subscription";
-// import SubscriptionButton from "@/components/SubscriptionButton";
-import { db } from "@/lib/db";
-import { chats, users } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
 import MicrophoneComponent from "@/components/MicrophoneComponent";
 import QuestionAskerComponent from "@/components/QuestionAskerComponent";
-import { User } from "@clerk/nextjs/server";
-
-async function checkAndInsertUser(user: User) {
-  // Assuming user.id is the Clerk user ID and you're using it as userId in your schema
-  const clerkUserId = user.id;
-  const emailAddress = user.emailAddresses[0].emailAddress; // Assuming the first email is the primary one
-
-  // Check if the user exists in your database
-  const existingUser = await db
-    .select()
-    .from(users)
-    .where(eq(users.userId, clerkUserId))
-    .execute();
-
-  // If the user doesn't exist, insert them
-  if (existingUser.length === 0) {
-    await db
-      .insert(users)
-      .values({
-        userId: clerkUserId,
-        emailAddress: emailAddress,
-        activeChatVersion: 1, // we want to set this to 1 for new users
-        // Include other fields as necessary
-      })
-      .execute();
-    console.log("User inserted into database");
-  } else {
-    console.log("User already exists in the database");
-  }
-}
+import { checkAndInsertUser } from "@/lib/utils";
+import VoiceAssistant from "@/components/VoiceAssistant";
 
 export default async function Home() {
   const { userId } = await auth();
@@ -48,11 +14,7 @@ export default async function Home() {
 
   if (userId) {
     const user = await clerkClient.users.getUser(userId);
-    console.log("user details - ", user);
-    await checkAndInsertUser(user);
-    // check if entry exists in users table or not
-    // if not then we will feed this entry in db
-    // get user_id from clerk and email
+    // await checkAndInsertUser(user);
   }
 
   // let firstChat;
@@ -94,16 +56,16 @@ export default async function Home() {
         <div className="flex flex-col justify-center items-center mt-4">
           {isAuth ? (
             <>
-              {/* <div className="w-full ">
-                <FileUpload />
+              <div className="w-full ">
+                <VoiceAssistant />
               </div>
-              <div className="w-full h-5 "></div> */}
-              <div className="w-full flex flex-col">
+              <div className="w-full h-5 "></div>
+              {/* <div className="w-full flex flex-col">
                 <MicrophoneComponent />
               </div>
               <div className="w-full flex flex-col">
                 <QuestionAskerComponent />
-              </div>
+              </div> */}
             </>
           ) : (
             <Link href="/sign-in">

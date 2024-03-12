@@ -16,6 +16,7 @@
     "@radix-ui/react-slot": "^1.0.2",
     "@tanstack/react-query": "^4.33.0",
     "ai": "^2.2.36",
+    "api": "^6.1.1",
     "aws-sdk": "^2.1564.0",
     "axios": "^1.6.7",
     "class-variance-authority": "^0.7.0",

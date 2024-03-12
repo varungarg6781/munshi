@@ -1,73 +1,89 @@
-import { Configuration, OpenAIApi } from "openai-edge";
-import { Message, OpenAIStream, StreamingTextResponse } from "ai";
-import { db } from "@/lib/db";
-import { chats, messages as _messages } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+// 0. Import Dependencies
+import OpenAI from "openai";
+import dotenv from "dotenv";
+import { OpenAI as LangchainOpenAI } from "@langchain/openai";
+import { Ollama } from "@langchain/community/llms/ollama";
+import api from "api";
 import { NextResponse } from "next/server";
-import { getContext } from "@/lib/context";
 
-export const runtime = "edge";
+// 1. Initialize the Perplexity SDK
+const sdk = api("@pplx/v0#rht322clnm9gt25");
 
-const config = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-const openai = new OpenAIApi(config);
+// 2. Configure environment variables
+dotenv.config();
+sdk.auth(process.env.PERPLEXITY_API_KEY);
 
-export async function POST(req: Request) {
-  try {
-    const { messages, chatId } = await req.json();
-    const _chats = await db.select().from(chats).where(eq(chats.id, chatId));
-    if (_chats.length != 1) {
-      return NextResponse.json({ error: "chat not found" }, { status: 404 });
-    }
-    const fileKey = _chats[0].fileKey;
-    const lastMessage = messages[messages.length - 1];
-    const context = await getContext(lastMessage.content, fileKey);
+// 3. Define the response data structure
+interface ResponseData {
+  data: string;
+  contentType: string;
+  model: string;
+}
 
-    const prompt = {
-      role: "system",
-      content: `AI assistant is a brand new, powerful, human-like artificial intelligence.
-      The traits of AI include expert knowledge, helpfulness, cleverness, and articulateness.
-      AI is a well-behaved and well-mannered individual.
-      AI is always friendly, kind, and inspiring, and he is eager to provide vivid and thoughtful responses to the user.
-      AI has the sum of all knowledge in their brain, and is able to accurately answer nearly any question about any topic in conversation.
-      AI assistant is a big fan of Pinecone and Vercel.
-      START CONTEXT BLOCK
-      ${context}
-      END OF CONTEXT BLOCK
-      AI assistant will take into account any CONTEXT BLOCK that is provided in a conversation.
-      If the context does not provide the answer to question, the AI assistant will say, "I'm sorry, but I don't know the answer to that question".
-      AI assistant will not apologize for previous responses, but instead will indicated new information was gained.
-      AI assistant will not invent anything that is not drawn directly from the context.
-      `,
-    };
+// 4. Initialize the OpenAI instance
+const openai = new OpenAI();
 
-    const response = await openai.createChatCompletion({
-      model: "gpt-3.5-turbo",
-      messages: [
-        prompt,
-        ...messages.filter((message: Message) => message.role === "user"),
-      ],
-      stream: true,
-    });
-    const stream = OpenAIStream(response, {
-      onStart: async () => {
-        // save user message into db
-        await db.insert(_messages).values({
-          chatId,
-          content: lastMessage.content,
-          role: "user_listener",
-        });
+// 5. Function to create audio from text
+async function createAudio(
+  fullMessage: string,
+  voice: "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer"
+) {
+  const mp3 = await openai.audio.speech.create({
+    model: "tts-1",
+    voice: voice,
+    input: fullMessage,
+  });
+  const buffer = Buffer.from(await mp3.arrayBuffer());
+  return buffer.toString("base64");
+}
+
+// 6. HTTP POST handler function
+export async function POST(req: Request, res: Response) {
+  const body = await req.json();
+  const { message } = body;
+  // let message = body.message.toLowerCase();
+  // let modelName = body.model || "gpt";
+
+  // 8. Initialize variables for messages and audio
+  let introMessage = "",
+    base64Audio,
+    voice: "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer" = "echo",
+    gptMessage,
+    fullMessage;
+
+  // 9. Common prompt for all models
+  const commonPrompt =
+    "Be precise and concise, never respond in more than 1-2 sentences! " +
+    message;
+
+  // 10. Handle different model cases
+
+  const llm = new LangchainOpenAI({
+    openAIApiKey: process.env.OPENAI_API_KEY,
+    modelName: "gpt-4",
+  });
+  gptMessage = await llm.invoke(commonPrompt);
+  introMessage = "GPT-4 here, ";
+  voice = "echo";
+
+  // 18. Compile the full message and create the audio
+  fullMessage = introMessage + gptMessage;
+  base64Audio = await createAudio(fullMessage, voice);
+
+  // 19. Return the response
+  // return Response.json({
+  //   data: base64Audio,
+  //   contentType: "audio/mp3",
+  //   model: modelName,
+  // });
+
+  return NextResponse.json(
+    {
+      data: {
+        data: base64Audio,
+        contentType: "audio/mp3",
       },
-      onCompletion: async (completion) => {
-        // save ai message into db
-        await db.insert(_messages).values({
-          chatId,
-          content: completion,
-          role: "system",
-        });
-      },
-    });
-    return new StreamingTextResponse(stream);
-  } catch (error) {}
+    },
+    { status: 200 }
+  );
 }
