@@ -1,4 +1,4 @@
-import { Configuration, OpenAIApi } from "openai-edge";
+// import { Configuration, OpenAIApi } from "openai-edge";
 import { getContext } from "@/lib/context";
 import { db } from "@/lib/db";
 import { OpenAIStream, StreamingTextResponse } from "ai";
@@ -8,11 +8,30 @@ import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { fetchActiveChatVersion } from "@/lib/db/dbUtils";
 
-const openai = new OpenAIApi(
-  new Configuration({
-    apiKey: process.env.OPENAI_API_KEY,
-  })
-);
+// const openai = new OpenAIApi(
+//   new Configuration({
+//     apiKey: process.env.OPENAI_API_KEY,
+//   })
+// );
+
+// import Configuration from "openai";
+import OpenAIApi from "openai";
+
+const openai = new OpenAIApi({ apiKey: process.env.OPENAI_API_KEY });
+
+// const openai = new OpenAI();
+async function createAudio(
+  fullMessage: string,
+  voice: "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer"
+) {
+  const mp3 = await openai.audio.speech.create({
+    model: "tts-1",
+    voice: voice,
+    input: fullMessage,
+  });
+  const buffer = Buffer.from(await mp3.arrayBuffer());
+  return buffer.toString("base64");
+}
 
 export async function POST(req: Request) {
   try {
@@ -72,34 +91,55 @@ export async function POST(req: Request) {
     });
 
     console.log("messagesForOpenAI is -", messagesForOpenAI);
+    let fullMessage;
+    try {
+      const completionResponse = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: messagesForOpenAI,
+      });
+      // Adjusted based on the actual structure of 'completionResponse'
+      fullMessage = completionResponse.choices[0].message.content;
+    } catch (error) {
+      console.error("Error in chat completion:", error);
+    }
 
-    const response = await openai.createChatCompletion({
-      model: "gpt-3.5-turbo",
-      messages: messagesForOpenAI,
-      stream: true,
+    console.log("Return from Open AI is -", fullMessage);
+    if (!fullMessage) {
+    }
+
+    await db.insert(voiceMessages).values({
+      userId: String(userId),
+      content: question,
+      role: "user_questioner",
+      chatVersion: activeChatVersion,
     });
 
-    const stream = OpenAIStream(response, {
-      onStart: async () => {
-        // TODO: also seed the activechatId here
-        // save user question into db
-        await db.insert(voiceMessages).values({
-          userId: String(userId),
-          content: question,
-          role: "user_questioner",
-          chatVersion: activeChatVersion,
-        });
-      },
-      onCompletion: async (completion) => {
-        // save ai message into db
-        await db.insert(voiceMessages).values({
-          userId: String(userId),
-          content: completion,
-          role: "system",
-          chatVersion: activeChatVersion,
-        });
-      },
+    if (!fullMessage) {
+      throw new Error("No Response from Open AI");
+    }
+
+    await db.insert(voiceMessages).values({
+      userId: String(userId),
+      content: fullMessage,
+      role: "system",
+      chatVersion: activeChatVersion,
     });
-    return new StreamingTextResponse(stream);
-  } catch (error) {}
+
+    const voice = "echo";
+    const base64Audio = await createAudio(fullMessage, voice);
+    console.log("Response from questions api -", fullMessage);
+    return NextResponse.json(
+      {
+        data: {
+          data: base64Audio,
+          contentType: "audio/mp3",
+        },
+      },
+      { status: 200 }
+    );
+    // return new StreamingTextResponse(stream);
+  } catch (error) {
+    console.error("Error in POST function:", error);
+    return NextResponse.json({ error: "An error occurred" }, { status: 500 });
+  }
 }

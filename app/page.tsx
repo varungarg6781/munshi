@@ -60,12 +60,12 @@ export default async function Home() {
                 <VoiceAssistant />
               </div>
               <div className="w-full h-5 "></div>
-              {/* <div className="w-full flex flex-col">
+              <div className="w-full flex flex-col">
                 <MicrophoneComponent />
               </div>
               <div className="w-full flex flex-col">
                 <QuestionAskerComponent />
-              </div> */}
+              </div>
             </>
           ) : (
             <Link href="/sign-in">
