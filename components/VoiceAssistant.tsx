@@ -211,6 +211,10 @@ export default function VoiceAssistant() {
     handleToggleListening(); // Existing toggle listening function
   };
 
+  useEffect(() => {
+    isListeningRef.current = isListening;
+  }, [isListening]);
+
   return (
     <main className="flex flex-col items-center p-4">
       <div className="flex items-stretch w-full mt-10">
