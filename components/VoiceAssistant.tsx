@@ -2,6 +2,7 @@
 import { useUser } from "@clerk/nextjs";
 import axios from "axios";
 import { useEffect, useState, useRef } from "react";
+import toast from "react-hot-toast";
 
 //2. Extend Window interface for webkitSpeechRecognition
 declare global {
@@ -18,17 +19,16 @@ export default function VoiceAssistant() {
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [transcript, setTranscript] = useState<string>("");
-  const [model, setModel] = useState<string>("");
+  // const [model, setModel] = useState<string>("");
   const [response, setResponse] = useState<string>("");
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  // New state for listener functionality
+  const [isListening, setIsListening] = useState<boolean>(false);
 
   //5. Ref hooks for speech recognition and silence detection
   const recognitionRef = useRef<any>(null);
   const silenceTimerRef = useRef<any>(null);
-
-  //6. Determine CSS class for model display based on state
-  const getModelClassName = (model: string): string =>
-    model === model && isPlaying ? " prominent-pulse" : "";
+  const isListeningRef = useRef(isListening);
 
   //7. Asynchronous function to handle backend communication
   const sendToBackend = async (message: string): Promise<void> => {
@@ -63,7 +63,6 @@ export default function VoiceAssistant() {
         audio.onended = () => {
           setIsPlaying(false);
           startRecording();
-          if (data.model) setModel(data.model);
         };
       }
     } catch (error) {
@@ -72,28 +71,6 @@ export default function VoiceAssistant() {
     }
     setIsLoading(false);
   };
-
-  //8. Render individual model selection bubbles
-  const renderModelBubble = (
-    model: string,
-    displayName: string,
-    bgColor: string
-  ): JSX.Element => (
-    <div
-      className={`flex flex-col items-center model-bubble text-center${getModelClassName(
-        model
-      )}`}
-    >
-      {isLoading && model === model && (
-        <div className="loading-indicator"></div>
-      )}
-      <div
-        className={`w-48 h-48 flex items-center justify-center ${bgColor} text-white rounded-full`}
-      >
-        {displayName}
-      </div>
-    </div>
-  );
 
   //9. Process speech recognition results
   const handleResult = (event: any): void => {
@@ -104,22 +81,34 @@ export default function VoiceAssistant() {
     }
     setTranscript(interimTranscript);
     silenceTimerRef.current = setTimeout(() => {
-      sendToBackend(interimTranscript);
+      if (isListeningRef.current) {
+        console.log("entering listener component");
+        sendToListenerEndpoint(interimTranscript);
+      } else {
+        console.log("entering question component");
+        sendToBackend(interimTranscript);
+      }
       setTranscript("");
     }, 2000);
   };
 
   //10. Initialize speech recognition
-  const startRecording = () => {
+  const startRecording = (listening = false) => {
     setIsRecording(true);
+    // if (isListening) {
+    //   setIsListening(true);
+    // }
+    setIsListening(listening); // Directly set based on the argument
     setTranscript("");
-    setResponse("");
+    // setResponse("");
+    console.log("Current state of listening, ", isListening);
     recognitionRef.current = new window.webkitSpeechRecognition();
     recognitionRef.current.continuous = true;
     recognitionRef.current.interimResults = true;
     recognitionRef.current.onresult = handleResult;
     recognitionRef.current.onend = () => {
       setIsRecording(false);
+      setIsListening(false); // Ensure listening is reset when stopped
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     };
     recognitionRef.current.start();
@@ -135,41 +124,136 @@ export default function VoiceAssistant() {
 
   //12. Function to terminate speech recognition
   const stopRecording = () => {
-    if (recognitionRef.current) recognitionRef.current.stop();
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false); // Reset listening state
+    }
   };
 
   //13. Toggle recording state
   const handleToggleRecording = () => {
-    if (!isRecording && !isPlaying) startRecording();
-    else if (isRecording) stopRecording();
+    setIsListening(false); // Ensure we're in listening mode.
+    if (!isRecording && !isPlaying) {
+      startRecording(false); // Explicitly not listening
+    }
+    // else if (isRecording) stopRecording();
+    else stopRecording();
   };
+
+  // New toggle for the "Listener" functionality
+  const handleToggleListening = () => {
+    setIsListening(true); // Ensure we're in listening mode.
+    if (!isRecording && !isPlaying) {
+      startRecording(true); // Explicitly listening
+    } else {
+      stopRecording();
+    }
+  };
+
+  const handleRefreshChat = async () => {
+    try {
+      // Update the user's activeChatVersion in the database
+      const response = await axios.post(
+        "/api/update-chat-version",
+        {
+          userId,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      const { success } = response.data;
+      if (success) {
+        toast.success("Chat refreshed successfully!");
+      } else {
+        toast.error("Chat can't be refreshed");
+      }
+
+      // Optionally, perform any additional actions upon successful update
+    } catch (error) {
+      console.error("Failed to refresh chat", error);
+      toast.error("Failed to refresh chat");
+    }
+  };
+
+  const sendToListenerEndpoint = async (transcript: string): Promise<void> => {
+    setIsLoading(true);
+    try {
+      const response = await axios.post(
+        "/api/process-voice",
+        { transcript: transcript },
+        {
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+      const { success, message } = response.data;
+      if (success) {
+        toast.success("Voice processed successfully!");
+      } else {
+        toast.error(message || "Failed to process voice");
+      }
+    } catch (error) {
+      console.error("Error sending data to listener endpoint:", error);
+    }
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    isListeningRef.current = isListening;
+  }, [isListening]);
+
+  useEffect(() => {
+    console.log(`Recording: ${isRecording}, Listening: ${isListening}`);
+    // Adjust logic or add cleanup based on state changes here if necessary.
+  }, [isRecording, isListening]);
+
+  useEffect(() => {
+    console.log(`Listening State Updated: ${isListening}`);
+  }, [isListening]);
 
   //14. Main component rendering method
   return (
     //14.1 Render recording and transcript status
     <main className="flex flex-col items-center bg-gray-100">
       {/* 14.2 Render model selection and recording button */}
-      <div className="flex items-center justify-center  w-full">
-        <div className="w-full">
+      <div className="flex items-center justify-center  w-full mt-10">
+        {/* <div className="w-full">
           <div className="grid grid-cols-3 gap-8 mt-10">
             {renderModelBubble("gpt", "GPT-3.5", "bg-indigo-500")}
 
-            <div className="flex flex-col items-center">
-              <button
-                onClick={handleToggleRecording}
-                className={`m-auto flex items-center justify-center ${
-                  isRecording ? "bg-red-500 prominent-pulse" : "bg-blue-500"
-                } rounded-full w-48 h-48 focus:outline-none`}
-              ></button>
-              <button
-                onClick={handleToggleRecording}
-                className={`m-auto flex items-center justify-center ${
-                  isRecording ? "bg-red-500 prominent-pulse" : "bg-blue-500"
-                } rounded-full w-48 h-48 focus:outline-none`}
-              ></button>
-            </div>
+            <div className="flex flex-col items-center"> */}
+        <button
+          onClick={handleToggleRecording}
+          className={`m-auto flex items-center justify-center ${
+            isRecording ? "bg-red-500 prominent-pulse" : "bg-blue-500"
+          } rounded-full w-48 h-48 focus:outline-none`}
+        >
+          Ask question
+        </button>
+
+        <button
+          onClick={handleToggleListening}
+          className={`m-auto flex items-center justify-center ${
+            isRecording ? "bg-red-500 prominent-pulse" : "bg-blue-500"
+          } rounded-full w-48 h-48 focus:outline-none`}
+        >
+          Listen to user
+        </button>
+
+        <button
+          onClick={handleRefreshChat}
+          className={`m-auto flex items-center justify-center ${
+            isRecording ? "bg-red-500 prominent-pulse" : "bg-blue-500"
+          } rounded-full w-48 h-48 focus:outline-none`}
+        >
+          Refresh chat
+        </button>
+
+        {/* </div>
           </div>
-        </div>
+        </div> */}
       </div>
       {(isRecording || transcript || response) && (
         <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-full m-auto p-4 bg-white">

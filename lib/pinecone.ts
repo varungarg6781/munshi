@@ -34,7 +34,7 @@ export async function storeTextInPinecone(text: string, userId: string) {
     metadata: { text },
   };
 
-  console.log("pineconeRecord is - ", pineconeRecord);
+  // console.log("pineconeRecord is - ", pineconeRecord);
 
   // Storing in Pinecone as before
   const client = await getPineconeClient();

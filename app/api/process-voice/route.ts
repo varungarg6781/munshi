@@ -9,9 +9,10 @@ import { fetchActiveChatVersion } from "@/lib/db/dbUtils";
 export async function POST(req: Request, res: Response) {
   const { userId } = await auth();
   //   console.log("NextApiRequest is -", req.body);
-  console.log("User Id  -", userId);
+  // console.log("User Id  -", userId);
   const body = await req.json();
   const { transcript } = body;
+  console.log("Listening transcript -", transcript);
   try {
     // Fetch the current active chat version from users table based on userId
     const activeChatVersion = await fetchActiveChatVersion(userId);

@@ -59,13 +59,13 @@ export default async function Home() {
               <div className="w-full ">
                 <VoiceAssistant />
               </div>
-              <div className="w-full h-5 "></div>
+              {/* <div className="w-full h-5 "></div>
               <div className="w-full flex flex-col">
                 <MicrophoneComponent />
               </div>
               <div className="w-full flex flex-col">
                 <QuestionAskerComponent />
-              </div>
+              </div> */}
             </>
           ) : (
             <Link href="/sign-in">
