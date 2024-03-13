@@ -8,14 +8,12 @@ import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { fetchActiveChatVersion } from "@/lib/db/dbUtils";
 
-// const openai = new OpenAIApi(
-//   new Configuration({
-//     apiKey: process.env.OPENAI_API_KEY,
-//   })
-// );
-
-// import Configuration from "openai";
 import OpenAIApi from "openai";
+
+enum Role {
+  User = "user",
+  System = "system",
+}
 
 const openai = new OpenAIApi({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -73,7 +71,7 @@ export async function POST(req: Request) {
         (msg) => msg.role === "user_listener" || msg.role === "user_questioner"
       )
       .map((msg) => ({
-        role: "user",
+        role: Role.User,
         content: msg.content,
       }));
 
@@ -100,7 +98,7 @@ export async function POST(req: Request) {
     // });
 
     messagesForOpenAI.push({
-      role: "system",
+      role: Role.System,
       content: `START CONTEXT BLOCK
         ${context}
         END OF CONTEXT BLOCK
