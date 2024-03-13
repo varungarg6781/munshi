@@ -24,6 +24,7 @@ export default function VoiceAssistant() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   // New state for listener functionality
   const [isListening, setIsListening] = useState<boolean>(false);
+  const [activeButton, setActiveButton] = useState<string | null>(null); // "listener", "question", or null
 
   //5. Ref hooks for speech recognition and silence detection
   const recognitionRef = useRef<any>(null);
@@ -200,77 +201,97 @@ export default function VoiceAssistant() {
     setIsLoading(false);
   };
 
-  useEffect(() => {
-    isListeningRef.current = isListening;
-  }, [isListening]);
+  const handleToggleRecordingWithEffect = () => {
+    setActiveButton("question"); // Set active button to question
+    handleToggleRecording(); // Existing toggle recording function
+  };
 
-  useEffect(() => {
-    console.log(`Recording: ${isRecording}, Listening: ${isListening}`);
-    // Adjust logic or add cleanup based on state changes here if necessary.
-  }, [isRecording, isListening]);
+  const handleToggleListeningWithEffect = () => {
+    setActiveButton("listener"); // Set active button to listener
+    handleToggleListening(); // Existing toggle listening function
+  };
 
-  useEffect(() => {
-    console.log(`Listening State Updated: ${isListening}`);
-  }, [isListening]);
-
-  //14. Main component rendering method
   return (
-    //14.1 Render recording and transcript status
-    <main className="flex flex-col items-center bg-gray-100">
-      {/* 14.2 Render model selection and recording button */}
-      <div className="flex items-center justify-center  w-full mt-10">
-        {/* <div className="w-full">
-          <div className="grid grid-cols-3 gap-8 mt-10">
-            {renderModelBubble("gpt", "GPT-3.5", "bg-indigo-500")}
-
-            <div className="flex flex-col items-center"> */}
-        <button
-          onClick={handleToggleRecording}
-          className={`m-auto flex items-center justify-center ${
-            isRecording ? "bg-red-500 prominent-pulse" : "bg-blue-500"
-          } rounded-full w-48 h-48 focus:outline-none`}
-        >
-          Ask question
-        </button>
-
-        <button
-          onClick={handleToggleListening}
-          className={`m-auto flex items-center justify-center ${
-            isRecording ? "bg-red-500 prominent-pulse" : "bg-blue-500"
-          } rounded-full w-48 h-48 focus:outline-none`}
-        >
-          Listen to user
-        </button>
-
-        <button
-          onClick={handleRefreshChat}
-          className={`m-auto flex items-center justify-center ${
-            isRecording ? "bg-red-500 prominent-pulse" : "bg-blue-500"
-          } rounded-full w-48 h-48 focus:outline-none`}
-        >
-          Refresh chat
-        </button>
-
-        {/* </div>
-          </div>
-        </div> */}
-      </div>
-      {(isRecording || transcript || response) && (
-        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-full m-auto p-4 bg-white">
-          <div className="flex justify-center items-center w-full">
-            <div className="text-center">
-              <p className="text-xl font-bold">
-                {isRecording ? "Listening" : ""}
-              </p>
-              {transcript && (
-                <div className="p-2 h-full mt-4 text-center">
-                  <p className="text-lg mb-0">{transcript}</p>
-                </div>
-              )}
-            </div>
+    <main className="flex flex-col items-center p-4">
+      <div className="flex items-stretch w-full mt-10">
+        {" "}
+        {/* Change to items-stretch for equal height */}
+        <div className="flex-1 flex justify-center">
+          {" "}
+          {/* Wrap button in a flex container for centering */}
+          <div className="text-center">
+            {" "}
+            {/* This div becomes the flex item */}
+            <button
+              onClick={handleToggleListeningWithEffect}
+              className="flex flex-col items-center justify-center rounded-full p-4 focus:outline-none relative"
+            >
+              <img
+                src="listen.svg"
+                alt="Listen to User"
+                className={`w-24 h-24 ${
+                  isLoading && activeButton === "listener" ? "animate-spin" : ""
+                }`}
+              />
+              <span className="mt-8 block">
+                Hi, I can listen to all your queries
+              </span>{" "}
+              {/* Ensure block display */}
+            </button>
+            {isRecording && transcript && isListening && (
+              <div className="mt-4 bg-white bg-opacity-50 p-2 rounded">
+                <p className="text-lg mb-0">{transcript}</p>
+              </div>
+            )}
           </div>
         </div>
-      )}
+        <div className="mx-4 border-l-2 border-dotted border-gray-400"></div>{" "}
+        {/* Dotted line */}
+        <div className="flex-1 flex justify-center">
+          {" "}
+          {/* Apply same flex container strategy here */}
+          <div className="text-center">
+            {" "}
+            {/* This div becomes the flex item */}
+            <button
+              onClick={handleToggleRecordingWithEffect}
+              className="flex flex-col items-center justify-center rounded-full p-4 focus:outline-none relative"
+            >
+              <img
+                src="question.svg"
+                alt="Ask Question"
+                className={`w-24 h-24 ${
+                  isLoading && activeButton === "question" ? "animate-spin" : ""
+                }`}
+              />
+              <span className="mt-8 block">Ask me anything about yourself</span>{" "}
+              {/* Ensure block display */}
+            </button>
+            {isRecording && transcript && !isListening && (
+              <div className="mt-4 bg-white bg-opacity-50 p-2 rounded">
+                <p className="text-lg mb-0">{transcript}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-8">
+        <button
+          onClick={handleRefreshChat}
+          className="text-white font-bold py-2 px-4 rounded focus:outline-none"
+          style={{ backgroundColor: "rgb(88 132 123)" }}
+        >
+          Refresh Chat
+        </button>
+      </div>
+      <div className="mt-4 text-center">
+        <span>Upload your context in form of pdf </span>
+        <a href="" className="text-blue-600 hover:text-blue-800">
+          here
+        </a>
+        .
+      </div>
     </main>
   );
 }

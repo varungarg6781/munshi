@@ -17,40 +17,23 @@ export default async function Home() {
     // await checkAndInsertUser(user);
   }
 
-  // let firstChat;
-  // if (userId) {
-  //   firstChat = await db.select().from(chats).where(eq(chats.userId, userId));
-  //   if (firstChat) {
-  //     firstChat = firstChat[0];
-  //   }
-  // }
-
   return (
-    <div className="w-screen min-h-screen bg-gradient-to-r from-rose-50 to-rose-100">
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 ">
+    <div className="w-screen min-h-screen bg-gradient-to-r from-rose-50 to-teal-100">
+      {/* Position UserButton at the top right */}
+      <div className="absolute top-0 right-0 p-4">
+        <UserButton afterSignOutUrl="/" />
+      </div>
+      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 p-6 md:p-12 ">
         <div className="flex flex-col items-center text-center">
           <div className="flex items-center">
-            <h2 className="mr-2 text-5xl font-semibold">
-              Chat with PDF Or Voice Notes
+            <h2 className="text-4xl md:text-5xl font-semibold whitespace-nowrap">
+              Just converse with yourself
             </h2>
-            <UserButton afterSignOutUrl="/" />
+            {/* <UserButton afterSignOutUrl="/" /> */}
           </div>
 
-          {/* <div className="flex flex-col mt-2">
-            {isAuth && firstChat && (
-              <>
-                <Link href={`/chat/${firstChat.id}`}>
-                  <Button>
-                    Go to Chats <ArrowRight className="ml-2" />
-                  </Button>
-                </Link>
-              </>
-            )}
-          </div> */}
-
           <p className="max-w-xl mt-1 text-lg text-slate-600">
-            Drop in a document or effortlessly generate your own voice memos to
-            converse with them later using our AI-powered platform
+            Click on any below to start
           </p>
         </div>
         <div className="flex flex-col justify-center items-center mt-4">
@@ -59,13 +42,6 @@ export default async function Home() {
               <div className="w-full ">
                 <VoiceAssistant />
               </div>
-              {/* <div className="w-full h-5 "></div>
-              <div className="w-full flex flex-col">
-                <MicrophoneComponent />
-              </div>
-              <div className="w-full flex flex-col">
-                <QuestionAskerComponent />
-              </div> */}
             </>
           ) : (
             <Link href="/sign-in">
@@ -77,6 +53,17 @@ export default async function Home() {
           )}
         </div>
       </div>
+      {/* <div className="fixed bottom-0 right-0 mb-4 mr-4 text-sm text-gray-600">
+        Made with love by
+        <a
+          href="https://yourlink.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:underline"
+        >
+          Varun
+        </a>
+      </div> */}
     </div>
   );
 }
