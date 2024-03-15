@@ -102,7 +102,9 @@ export async function POST(req: Request) {
       content: `START CONTEXT BLOCK
         ${context}
         END OF CONTEXT BLOCK
-        Please provide information or answer the user's question based on the context provided above. If the answer is not available in the context, use your general knowledge to respond accurately.`,
+        Please provide information or answer the user's question based on the context provided above. 
+        Do not add any extra knowledge from yourself
+        Answer in 1-2 sentences only`,
     });
 
     console.log("messagesForOpenAI is -", messagesForOpenAI);
