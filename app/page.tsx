@@ -14,7 +14,7 @@ export default async function Home() {
 
   if (userId) {
     const user = await clerkClient.users.getUser(userId);
-    // await checkAndInsertUser(user);
+    await checkAndInsertUser(user);
   }
 
   return (
