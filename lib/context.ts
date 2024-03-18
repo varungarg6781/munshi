@@ -1,20 +1,20 @@
 import { Pinecone } from "@pinecone-database/pinecone";
 import { convertToAscii } from "./utils";
 import { getEmbeddings } from "./embeddings";
+import { getPineconeNamespace } from "./db/dbUtils";
 
 export async function getMatchesFromEmbeddings(
   embeddings: number[],
-  index: string
+  UserId: string
 ) {
   try {
     const client = new Pinecone({
-      //   environment: process.env.PINECONE_ENVIRONMENT!,
       apiKey: process.env.PINECONE_API_KEY!,
     });
     const pineconeIndex = await client.index("chatpdf");
-    // console.log("Got pineconeIndex ", pineconeIndex);
-    const namespace = pineconeIndex.namespace(convertToAscii(index));
-    // console.log("namespace is -", namespace);
+    const namespace = pineconeIndex.namespace(
+      convertToAscii(await getPineconeNamespace(UserId))
+    );
     const queryResult = await namespace.query({
       topK: 5,
       vector: embeddings,
@@ -28,10 +28,9 @@ export async function getMatchesFromEmbeddings(
   }
 }
 
-export async function getContext(query: string, index: string) {
+export async function getContext(query: string, UserId: string) {
   const queryEmbeddings = await getEmbeddings(query);
-  // console.log("query embeddings -", queryEmbeddings);
-  const matches = await getMatchesFromEmbeddings(queryEmbeddings, index);
+  const matches = await getMatchesFromEmbeddings(queryEmbeddings, UserId);
 
   const qualifyingDocs = matches.filter(
     (match) => match.score && match.score > 0.7

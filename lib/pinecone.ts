@@ -8,6 +8,7 @@ import {
 } from "@pinecone-database/doc-splitter";
 import { getEmbeddings } from "./embeddings";
 import { convertToAscii } from "./utils";
+import { getPineconeNamespace } from "./db/dbUtils";
 
 export const getPineconeClient = () => {
   return new Pinecone({
@@ -39,7 +40,7 @@ export async function storeTextInPinecone(text: string, userId: string) {
   // Storing in Pinecone as before
   const client = await getPineconeClient();
   const pineconeIndex = await client.index("chatpdf");
-  const namespace = pineconeIndex.namespace(userId);
+  const namespace = pineconeIndex.namespace(await getPineconeNamespace(userId));
 
   console.log("inserting vectors into pinecone");
   await namespace.upsert([pineconeRecord]);

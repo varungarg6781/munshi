@@ -23,3 +23,8 @@ export async function fetchActiveChatVersion(userId: any) {
 
   return activeChatVersion;
 }
+
+export async function getPineconeNamespace(userId: any) {
+  const activeChatVersion = await fetchActiveChatVersion(userId);
+  return `user-${userId}-chat-${activeChatVersion}`;
+}
